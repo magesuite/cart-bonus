@@ -48,4 +48,3 @@ class StatusBuilderTest extends \PHPUnit\Framework\TestCase
         include __DIR__ . '/../_files/cart_rules.php';
     }
 }
-
