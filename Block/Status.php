@@ -28,7 +28,7 @@ class Status extends \Magento\Framework\View\Element\Template
         return $this->statusBuilder->build($this->getCartValue());
     }
 
-    public function getCartValue(): float
+    public function getCartValue(): ?float
     {
         $quote = $this->cart->getQuote();
         $totals = $quote->getTotals();
