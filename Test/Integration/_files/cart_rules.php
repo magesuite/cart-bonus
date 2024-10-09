@@ -1,10 +1,13 @@
 <?php
 
-$objectManager = \Magento\TestFramework\Helper\Bootstrap::getObjectManager();
+declare(strict_types=1);
 
-if(!function_exists('build_condition_for_minimal_cart_value')) {
-    function build_condition_for_minimal_cart_value($cartValue) {
-       return '{"type":"Magento\\\\SalesRule\\\\Model\\\\Rule\\\\Condition\\\\Combine","attribute":null,"operator":null,"value":"1","is_value_processed":null,"aggregator":"all","conditions":[{"type":"Magento\\\\SalesRule\\\\Model\\\\Rule\\\\Condition\\\\Address","attribute":"base_subtotal_total_incl_tax","operator":">=","value":"'.$cartValue.'","is_value_processed":false}]}';
+$objectManager = \Magento\TestFramework\Helper\Bootstrap::getObjectManager();
+$serializer = $objectManager->create(\Magento\Framework\Serialize\Serializer\Json::class);
+
+if (!function_exists('build_condition_for_minimal_cart_value')) {
+    function build_condition_for_minimal_cart_value(int $cartValue): string {
+       return '{"type":"Magento\\\\SalesRule\\\\Model\\\\Rule\\\\Condition\\\\Combine","attribute":null,"operator":null,"value":"1","is_value_processed":null,"aggregator":"all","conditions":[{"type":"Magento\\\\SalesRule\\\\Model\\\\Rule\\\\Condition\\\\Address","attribute":"base_subtotal_total_incl_tax","operator":">=","value":"' . $cartValue . '","is_value_processed":false}]}';
     }
 }
 
@@ -17,6 +20,23 @@ $salesRule->setData(
         'customer_group_ids' => [\Magento\Customer\Model\GroupManagement::NOT_LOGGED_IN_ID],
         'coupon_type' => \Magento\SalesRule\Model\Rule::COUPON_TYPE_NO_COUPON,
         'conditions_serialized' => build_condition_for_minimal_cart_value(15),
+        'actions_serialized' => $serializer->serialize([
+            'type' => \Magento\SalesRule\Model\Rule\Condition\Product\Combine::class,
+            'attribute' => null,
+            'operator' => null,
+            'value' => '1',
+            'is_value_processed' => null,
+            'aggregator' => 'all',
+            'conditions' => [
+                [
+                    'type' => \Magento\SalesRule\Model\Rule\Condition\Product::class,
+                    'attribute' => 'quote_item_sku',
+                    'operator' => '!=',
+                    'value' => 'simple',
+                    'is_value_processed' => false,
+                ]
+            ]
+        ]),
         'simple_action' => \MageSuite\FreeGift\SalesRule\Action\GiftOnceAction::ACTION,
         'discount_amount' => 0,
         'discount_step' => 0,

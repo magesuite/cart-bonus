@@ -1,71 +1,50 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MageSuite\CartBonus\Service;
 
 class StatusBuilder
 {
-    /**
-     * @var \Magento\SalesRule\Model\ResourceModel\Rule\CollectionFactory
-     */
-    protected $ruleCollectionFactory;
-
-    /**
-     * @var \Magento\Store\Model\StoreManagerInterface
-     */
-    protected $storeManager;
-
-    /**
-     * @var \Magento\Customer\Model\Session
-     */
-    protected $customerSession;
-
-    /**
-     * @var \MageSuite\CartBonus\Model\Bonus\StatusFactory
-     */
-    protected $statusFactory;
-
-    /**
-     * @var \MageSuite\CartBonus\Model\BonusFactory
-     */
-    protected $bonusFactory;
+    protected \MageSuite\CartBonus\Model\Bonus\StatusFactory $statusFactory;
+    protected \MageSuite\CartBonus\Model\BonusFactory $bonusFactory;
+    protected \Magento\SalesRule\Model\ResourceModel\Rule\CollectionFactory $ruleCollectionFactory;
+    protected \Magento\Store\Model\StoreManagerInterface $storeManager;
+    protected \Magento\Customer\Model\Session $customerSession;
+    protected \Magento\Checkout\Model\Session $checkoutSession;
 
     public function __construct(
         \MageSuite\CartBonus\Model\Bonus\StatusFactory $statusFactory,
         \MageSuite\CartBonus\Model\BonusFactory $bonusFactory,
         \Magento\SalesRule\Model\ResourceModel\Rule\CollectionFactory $ruleCollectionFactory,
         \Magento\Store\Model\StoreManagerInterface $storeManager,
-        \Magento\Customer\Model\Session $customerSession
-    )
-    {
+        \Magento\Customer\Model\Session $customerSession,
+        \Magento\Checkout\Model\Session $checkoutSession
+    ) {
+        $this->statusFactory = $statusFactory;
+        $this->bonusFactory = $bonusFactory;
         $this->ruleCollectionFactory = $ruleCollectionFactory;
         $this->storeManager = $storeManager;
         $this->customerSession = $customerSession;
-        $this->statusFactory = $statusFactory;
-        $this->bonusFactory = $bonusFactory;
+        $this->checkoutSession = $checkoutSession;
     }
 
-    /**
-     * @param int $cartValue
-     * @return \MageSuite\CartBonus\Model\Bonus\Status
-     */
-    public function build($cartValue)
+    public function build(?float $cartValue): \MageSuite\CartBonus\Model\Bonus\Status
     {
-        /** @var \MageSuite\CartBonus\Model\Bonus\Status $status */
+        $quoteItems = $this->checkoutSession->getQuote()->getAllItems();
         $status = $this->statusFactory->create();
 
         $rules = $this->getBonusCartRules();
 
         $bonuses = [];
 
-        /** @var \Magento\SalesRule\Model\Rule $rule */
         foreach ($rules as $rule) {
-            $minimumCartValue = $this->getMinimumRequiredCartValue($rule);
+            $minimumCartValue = $this->getMinimumRequiredCartValue($rule, $quoteItems);
 
-            if($minimumCartValue == null) {
+            if ($minimumCartValue == null) {
                 continue;
             }
 
-            /** @var \MageSuite\CartBonus\Model\Bonus $bonus */
             $bonus = $this->bonusFactory->create();
 
             $bonus->setMinimumCartValue($minimumCartValue);
@@ -85,13 +64,7 @@ class StatusBuilder
         return $status;
     }
 
-
-    /**
-     * @param $status \MageSuite\CartBonus\Model\Bonus\Status
-     * @param $cartValue float
-     * @return int
-     */
-    protected function calculateCurrentProgress($status, $cartValue)
+    protected function calculateCurrentProgress(\MageSuite\CartBonus\Model\Bonus\Status $status, ?float $cartValue): void
     {
         $previousBonusMinimumCartValue = 0;
 
@@ -111,44 +84,55 @@ class StatusBuilder
         }
     }
 
-    /**
-     * @return \Magento\Framework\DataObject[]
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
-     */
-    protected function getBonusCartRules()
+    protected function getBonusCartRules(): array
     {
         $ruleCollection = $this->ruleCollectionFactory->create();
 
         $websiteId = $this->storeManager->getStore()->getWebsiteId();
         $customerGroupId = $this->customerSession->getCustomerGroupId();
 
-        $rules = $ruleCollection
+        return $ruleCollection
             ->setValidationFilter($websiteId, $customerGroupId)
             ->addFieldToFilter('is_visible_as_cart_bonus', ['eq' => 1])
             ->getItems();
-
-        return $rules;
     }
 
-    /**
-     * @param $rule \Magento\SalesRule\Model\Rule
-     * @return float|null
-     */
-    protected function getMinimumRequiredCartValue($rule)
+    protected function getMinimumRequiredCartValue(\Magento\SalesRule\Model\Rule $rule, array $quoteItems): ?float
     {
         $conditions = $rule->getConditions();
 
+        if (!$this->validateRuleActions($rule, $quoteItems)) {
+            return null;
+        }
+
         /** @var $condition \Magento\Rule\Model\Condition\Combine */
         foreach ($conditions->getConditions() as $condition) {
-            if(!in_array($condition->getAttribute(), ['base_subtotal_total_incl_tax', 'base_subtotal'])) {
+            if (!in_array($condition->getAttribute(), ['base_subtotal_total_incl_tax', 'base_subtotal'])) {
                 return null;
             }
 
-            if(!in_array($condition->getOperator(), ['>', '>='])) {
+            if (!in_array($condition->getOperator(), ['>', '>=']) || $condition->getValue() == null) {
                 return null;
             }
 
-            return $condition->getValue();
+            return (float)$condition->getValue();
         }
+    }
+
+    protected function validateRuleActions(\Magento\SalesRule\Model\Rule $rule, array $quoteItems): bool
+    {
+        $actions = $rule->getActions()->getActions();
+
+        if (empty($actions)) {
+            return true;
+        }
+
+        foreach ($quoteItems as $item) {
+            if (!$rule->getActions()->validate($item)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
