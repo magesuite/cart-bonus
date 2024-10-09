@@ -4,19 +4,11 @@ namespace MageSuite\CartBonus\Test\Integration\Service;
 
 /**
  * @magentoDbIsolation enabled
- * @magentoDataFixture loadCartRules
  */
 class StatusBuilderTest extends \PHPUnit\Framework\TestCase
 {
-    /**
-     * @var \Magento\TestFramework\ObjectManager
-     */
-    protected $objectManager;
-
-    /**
-     * @var \MageSuite\CartBonus\Service\StatusBuilder
-     */
-    protected $statusBuilder;
+    protected ?\Magento\TestFramework\ObjectManager $objectManager;
+    protected ?\MageSuite\CartBonus\Service\StatusBuilder $statusBuilder;
 
     public function setUp(): void
     {
@@ -24,7 +16,10 @@ class StatusBuilderTest extends \PHPUnit\Framework\TestCase
         $this->statusBuilder = $this->objectManager->create(\MageSuite\CartBonus\Service\StatusBuilder::class);
     }
 
-    public function testStatusIsCalculatedCorrectly()
+    /**
+     * @magentoDataFixture MageSuite_CartBonus::Test/Integration/_files/cart_rules.php
+     */
+    public function testStatusIsCalculatedCorrectly(): void
     {
         $status = $this->statusBuilder->build(30);
 
@@ -43,8 +38,16 @@ class StatusBuilderTest extends \PHPUnit\Framework\TestCase
         $this->assertNull($secondBonus->getLabel());
     }
 
-    public static function loadCartRules()
+    /**
+     * @magentoDataFixture Magento/Checkout/_files/quote_with_simple_product.php
+     * @magentoDataFixture MageSuite_CartBonus::Test/Integration/_files/cart_rules.php
+     */
+    public function testItValidatesRuleActions(): void
     {
-        include __DIR__ . '/../_files/cart_rules.php';
+        $status = $this->statusBuilder->build(30);
+        $bonus = $status->getBonuses()[0];
+
+        $this->assertFalse($bonus->wasAwarded());
+        $this->assertEquals(50, $bonus->getMinimumCartValue());
     }
 }
