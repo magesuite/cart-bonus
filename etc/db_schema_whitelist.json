@@ -1,0 +1,8 @@
+{
+    "salesrule": {
+        "column": {
+            "is_visible_as_cart_bonus": true,
+            "is_label_visible_by_default": true
+        }
+    }
+}

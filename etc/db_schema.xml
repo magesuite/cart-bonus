@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="salesrule">
+        <column xsi:type="smallint" name="is_visible_as_cart_bonus" unsigned="true" nullable="false" default="0" comment="Is rule visible as cart bonus"/>
+        <column xsi:type="smallint" name="is_label_visible_by_default" unsigned="true" nullable="false" default="0" comment="Is label visible by default"/>
+    </table>
+</schema>
