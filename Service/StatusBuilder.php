@@ -117,6 +117,8 @@ class StatusBuilder
 
             return (float)$condition->getValue();
         }
+
+        return null;
     }
 
     protected function validateRuleActions(\Magento\SalesRule\Model\Rule $rule, array $quoteItems): bool
